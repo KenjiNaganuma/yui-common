@@ -1,5 +1,5 @@
 from datetime import date
-from common.db.session import get_async_session
+from yui_common.db.session import get_async_session
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
