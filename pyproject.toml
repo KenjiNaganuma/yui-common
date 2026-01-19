@@ -1,0 +1,21 @@
+[project]
+name = "yui-common"
+version = "0.1.0"
+description = "Common core library for Yui applications"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+  "sqlalchemy",
+  "asyncpg",
+  "pydantic"
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["yui_common*"]
+
