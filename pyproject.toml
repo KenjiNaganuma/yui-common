@@ -8,14 +8,20 @@ requires-python = ">=3.10"
 dependencies = [
   "sqlalchemy",
   "asyncpg",
-  "pydantic"
+  "pydantic",
+  "pgvector",
+  "requests"
 ]
+
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+package-dir = {"" = "."}
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["yui_common*"]
+include = ["yui_common", "yui_common.*"]
 

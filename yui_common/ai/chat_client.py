@@ -1,4 +1,4 @@
-# note/routers/ai_client.py
+# yui_common/ai/chat_client.py
 import os
 import requests
 

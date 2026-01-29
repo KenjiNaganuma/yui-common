@@ -6,8 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import cast
 from pgvector.sqlalchemy import Vector
 from pgvector.asyncpg import register_vector
+from yui_common.ai.chat_client import YuiAIChatClient
 
-
+###############################
+# 一日まとめてドン！（初期RAG、休止20260129）
+###############################
 async def generate_rag_snippet(
         session: AsyncSession, 
         syokuin_cd: str, 
@@ -199,5 +202,283 @@ async def embed_text(text: str) -> list[float]:
 
     return await asyncio.to_thread(_call_api)
 
+
+###############################
+# 利用者ノートをRAGに突っ込む
+###############################
+async def generate_rag_snippet_riyosya(
+    session: AsyncSession,
+    note_id: int,
+):
+    conn = await session.connection()
+    raw_conn = await conn.get_raw_connection()
+    pgconn = raw_conn._connection
+    await register_vector(pgconn)
+
+    result = await session.execute(text("""
+        SELECT
+            id,
+            note_text,
+            kojin_id,
+            setai_id,
+            syokuin_cd,
+            syokuin_name,
+            report_date
+        FROM app.note
+        WHERE id = :id
+          AND delete_flag = false
+          AND target_type = 'riyosya'
+    """), {"id": note_id})
+
+    row = result.mappings().first()
+    if not row or not row["note_text"].strip():
+        return
+
+    content = row["note_text"].strip()
+
+    await session.execute(text("""
+        DELETE FROM ai.rag_snippets
+        WHERE source_type = 'riyosya'
+          AND source_id = :source_id
+    """), {"source_id": note_id})
+
+    embedding = await embed_text(content)
+    snippet_type = await classify_snippet_type(content)
+
+    await session.execute(text("""
+        INSERT INTO ai.rag_snippets (
+            snippet_type,
+            kojin_id,
+            setai_id,
+            source_type,
+            source_id,
+            content,
+            embedding,
+            report_date,
+            syokuin_cd,
+            syokuin_name
+        )
+        VALUES (
+            :snippet_type,
+            :kojin_id,
+            :setai_id,
+            'riyosya',
+            :source_id,
+            :content,
+            :embedding,
+            :report_date,
+            :syokuin_cd,
+            :syokuin_name
+        )
+    """), {
+        "snippet_type": snippet_type,
+        "kojin_id": row["kojin_id"],
+        "setai_id": row["setai_id"],
+        "source_id": row["id"],
+        "content": content,
+        "embedding": embedding,
+        "report_date": row["report_date"],
+        "syokuin_cd": row["syokuin_cd"],
+        "syokuin_name": row["syokuin_name"],
+    })
+
+
+###############################
+# 職員ノートをRAGに突っ込む
+###############################
+async def generate_rag_snippet_syokuin(
+    session: AsyncSession,
+    note_id: int,
+):
+    conn = await session.connection()
+    raw_conn = await conn.get_raw_connection()
+    pgconn = raw_conn._connection
+    await register_vector(pgconn)
+
+    result = await session.execute(text("""
+        SELECT
+            id,
+            note_text,
+            kojin_id,
+            setai_id,
+            syokuin_cd,
+            syokuin_name,
+            report_date
+        FROM app.note
+        WHERE id = :id
+          AND target_type = 'syokuin'
+    """), {"id": note_id})
+
+    row = result.mappings().first()
+    if not row or not row["note_text"].strip():
+        return
+
+    content = row["note_text"].strip()
+
+    await session.execute(text("""
+        DELETE FROM ai.rag_snippets
+        WHERE source_type = 'syokuin'
+          AND source_id = :source_id
+    """), {"source_id": note_id})
+
+    embedding = await embed_text(content)
+    snippet_type = await classify_snippet_type(content)
+
+    await session.execute(text("""
+        INSERT INTO ai.rag_snippets (
+            snippet_type,
+            kojin_id,
+            setai_id,
+            source_type,
+            source_id,
+            content,
+            embedding,
+            report_date,
+            syokuin_cd,
+            syokuin_name
+        )
+        VALUES (
+            :snippet_type,
+            :kojin_id,
+            :setai_id,
+            'syokuin',
+            :source_id,
+            :content,
+            :embedding,
+            :report_date,
+            :syokuin_cd,
+            :syokuin_name
+        )
+    """), {
+        "snippet_type": snippet_type,
+        "kojin_id": row["kojin_id"],
+        "setai_id": row["setai_id"],
+        "source_id": row["id"],
+        "content": content,
+        "embedding": embedding,
+        "report_date": row["report_date"],
+        "syokuin_cd": row["syokuin_cd"],
+        "syokuin_name": row["syokuin_name"],
+    })
+
+
+###############################
+# リマインダーをRAGに突っ込む
+###############################
+async def generate_rag_snippet_reminder(
+    session: AsyncSession,
+    note_id: int,
+):
+    conn = await session.connection()
+    raw_conn = await conn.get_raw_connection()
+    pgconn = raw_conn._connection
+    await register_vector(pgconn)
+
+    result = await session.execute(text("""
+        SELECT
+            reminder_id AS id,
+            description AS note_text,
+            kojin_id,
+            0 AS setai_id,
+            syokuin_cd,
+            syokuin_name,
+            event_date AS report_date
+        FROM app.reminder
+        WHERE reminder_id = :id
+    """), {"id": note_id})
+
+    row = result.mappings().first()
+    if not row or not row["note_text"].strip():
+        return
+
+    content = row["note_text"].strip()
+
+    await session.execute(text("""
+        DELETE FROM ai.rag_snippets
+        WHERE source_type = 'syokuin'
+          AND source_id = :source_id
+    """), {"source_id": note_id})
+
+    embedding = await embed_text(content)
+    snippet_type = await classify_snippet_type(content)
+
+    await session.execute(text("""
+        INSERT INTO ai.rag_snippets (
+            snippet_type,
+            kojin_id,
+            setai_id,
+            source_type,
+            source_id,
+            content,
+            embedding,
+            report_date,
+            syokuin_cd,
+            syokuin_name
+        )
+        VALUES (
+            :snippet_type,
+            :kojin_id,
+            :setai_id,
+            'reminder',
+            :source_id,
+            :content,
+            :embedding,
+            :report_date,
+            :syokuin_cd,
+            :syokuin_name
+        )
+    """), {
+        "snippet_type": snippet_type,
+        "kojin_id": row["kojin_id"],
+        "setai_id": row["setai_id"],
+        "source_id": row["id"],
+        "content": content,
+        "embedding": embedding,
+        "report_date": row["report_date"],
+        "syokuin_cd": row["syokuin_cd"],
+        "syokuin_name": row["syokuin_name"],
+    })
+
+
+###########################################
+# RAGに突っ込むスニペットタイプをLLMに判断させる
+###########################################
+async def classify_snippet_type(text: str) -> str:
+    ai_client = YuiAIChatClient(
+    base_url=os.getenv("YUI_AI_BASE_URL", "http://yui-ai:8000")
+)
+    prompt = f"""
+次の文章はJA職員の業務記録の一部です。
+内容の性質として最も近いものを、次から1つだけ選んでください。
+
+- decision
+- change
+- emotion
+- fact
+
+文章：
+{text}
+
+出力はラベル名のみ。
+"""
+
+    messages = [
+        {
+            "role": "system",
+            "content": "あなたは業務記録を分類するアシスタントです。"
+        },
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ]
+
+    answer = ai_client.chat(
+        messages=messages,
+        temperature=0.0
+    )
+
+    label = answer.strip().lower()
+    return label if label in {"decision","change","emotion","fact"} else "fact"
 
 

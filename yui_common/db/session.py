@@ -1,46 +1,40 @@
 # yui/common/db/session.py
 
+# yui_common/db/session.py
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from typing import AsyncGenerator
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DBNAME_APP = os.getenv("DBNAME_APP")
+_engine = None
+_sessionmaker = None
 
-DATABASE_URL = (
-    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DBNAME_APP}"
-)
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    connect_args={"server_settings": {"search_path": "app,kdp,ai,public"}},
-    pool_pre_ping=True,
-    pool_recycle=1800,
-)
+def _build_database_url() -> str:
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT")
+    dbname = os.getenv("DBNAME_APP")
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+    if not all([user, password, host, port, dbname]):
+        raise RuntimeError("Database environment variables are not fully set")
 
-# common/db/session.py
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{dbname}"
 
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    """
-    FastAPI Depends 専用。
-    HTTPリクエスト単位で session lifecycle を管理する。
-    """
-    async with SessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        else:
-            await session.commit()
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        db_url = _build_database_url()
+        _engine = create_async_engine(db_url, echo=False)
+    return _engine
+
+
+def get_async_session():
+    global _sessionmaker
+    if _sessionmaker is None:
+        engine = get_engine()
+        _sessionmaker = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+    return _sessionmaker
