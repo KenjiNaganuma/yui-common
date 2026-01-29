@@ -12,7 +12,8 @@ class LoginUserMiddleware(BaseHTTPMiddleware):
             syokuin_cd = request.session.get("syokuin_cd")
 
             if syokuin_cd:
-                async with get_async_session() as db:
+                SessionLocal = get_async_session()   # ← ① sessionmaker を取得
+                async with SessionLocal() as db:     # ← ② AsyncSession を生成して with
                     result = await db.execute(
                         text("""
                             SELECT *
