@@ -1,5 +1,3 @@
-# yui/common/db/session.py
-
 # yui_common/db/session.py
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -30,11 +28,22 @@ def get_engine():
     return _engine
 
 
-def get_async_session():
+def get_sessionmaker():
     global _sessionmaker
     if _sessionmaker is None:
         engine = get_engine()
         _sessionmaker = sessionmaker(
-            engine, class_=AsyncSession, expire_on_commit=False
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False
         )
     return _sessionmaker
+
+
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    SessionLocal = get_sessionmaker()
+    async with SessionLocal() as session:
+        yield session

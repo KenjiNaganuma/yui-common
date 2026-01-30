@@ -1,7 +1,7 @@
 # yui_common/middleware/auth.py
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
-from yui_common.db.session import get_async_session
+from yui_common.db.session import get_sessionmaker
 
 class LoginUserMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -12,7 +12,7 @@ class LoginUserMiddleware(BaseHTTPMiddleware):
             syokuin_cd = request.session.get("syokuin_cd")
 
             if syokuin_cd:
-                SessionLocal = get_async_session()   # ← ① sessionmaker を取得
+                SessionLocal = get_sessionmaker()   # ← ① sessionmaker を取得
                 async with SessionLocal() as db:     # ← ② AsyncSession を生成して with
                     result = await db.execute(
                         text("""
