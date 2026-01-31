@@ -32,29 +32,29 @@ from typing import Optional
 class EventFormParams:
     def __init__(
         self,
-        hidden_start_date: str = Form(None),
-        hidden_end_date: str = Form(None),
-        hidden_note_date: str = Form(None),
-        hidden_login_syokuin_cd: str = Form(None),
-        hidden_login_syokuin_name: str = Form(None),
-        hidden_selected_syokuin_cd: str = Form(None),
-        hidden_selected_report: str = Form(None),
-        hidden_search_word: str = Form(None),
-        hidden_selected_tag: str = Form(None),
-        hidden_selected_tag_type: str = Form(None),
-        hidden_selected_kojin_id: str = Form(None),
+        HiddenNavigateStartDate: str = Form(None),
+        HiddenNavigateEndDate: str = Form(None),
+        HiddenNavigateNoteDate: str = Form(None),
+        HiddenNavigateLoginSyokuinCD: str = Form(None),
+        HiddenNavigateLoginSyokuinName: str = Form(None),
+        HiddenNavigateSelectedSyokuinCD: str = Form(None),
+        HiddenNavigateSelectedReport: str = Form(None),
+        HiddenNavigateSearchWord: str = Form(None),
+        HiddenNavigateSelectedTag: str = Form(None),
+        HiddenNavigateSelectedTagType: str = Form(None),
+        HiddenNavigateSelectedKojinID: str = Form(None),
     ):
-        self.hidden_start_date: Optional[str] = hidden_start_date
-        self.hidden_end_date: Optional[str] = hidden_end_date
-        self.hidden_note_date: Optional[str] = hidden_note_date
-        self.hidden_login_syokuin_cd: Optional[str] = hidden_login_syokuin_cd
-        self.hidden_login_syokuin_name: Optional[str] = hidden_login_syokuin_name
-        self.hidden_selected_syokuin_cd: Optional[str] = hidden_selected_syokuin_cd
-        self.hidden_selected_report: Optional[str] = hidden_selected_report
-        self.hidden_search_word: Optional[str] = hidden_search_word
-        self.hidden_selected_tag: Optional[str] = hidden_selected_tag
-        self.hidden_selected_tag_type: Optional[str] = hidden_selected_tag_type
-        self.hidden_selected_kojin_id: Optional[str] = hidden_selected_kojin_id
+        self.HiddenNavigateStartDate: Optional[str] = HiddenNavigateStartDate
+        self.HiddenNavigateEndDate: Optional[str] = HiddenNavigateEndDate
+        self.HiddenNavigateNoteDate: Optional[str] = HiddenNavigateNoteDate
+        self.HiddenNavigateLoginSyokuinCD: Optional[str] = HiddenNavigateLoginSyokuinCD
+        self.HiddenNavigateLoginSyokuinName: Optional[str] = HiddenNavigateLoginSyokuinName
+        self.HiddenNavigateSelectedSyokuinCD: Optional[str] = HiddenNavigateSelectedSyokuinCD
+        self.HiddenNavigateSelectedReport: Optional[str] = HiddenNavigateSelectedReport
+        self.HiddenNavigateSearchWord: Optional[str] = HiddenNavigateSearchWord
+        self.HiddenNavigateSelectedTag: Optional[str] = HiddenNavigateSelectedTag
+        self.HiddenNavigateSelectedTagType: Optional[str] = HiddenNavigateSelectedTagType
+        self.HiddenNavigateSelectedKojinID: Optional[str] = HiddenNavigateSelectedKojinID
 
 
 
