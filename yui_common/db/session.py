@@ -24,7 +24,7 @@ def get_engine():
     global _engine
     if _engine is None:
         db_url = _build_database_url()
-        _engine = create_async_engine(db_url, echo=False)
+        _engine = create_async_engine(db_url, echo=False, pool_pre_ping=True)
     return _engine
 
 
@@ -47,3 +47,15 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     SessionLocal = get_sessionmaker()
     async with SessionLocal() as session:
         yield session
+
+# yui_common/middleware/session.py
+from starlette.middleware.sessions import SessionMiddleware
+
+def setup_session_middleware(app):
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=os.getenv("SESSION_SECRET_KEY"),
+        session_cookie=os.getenv("SESSION_COOKIE_NAME", "yui_session"),
+        domain=os.getenv("SESSION_DOMAIN"),
+        https_only=os.getenv("SESSION_HTTPS_ONLY", "true").lower() == "true",
+    )

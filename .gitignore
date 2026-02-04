@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Python virtualenv
+.venv/
+
 # Env
 .env
 .env.*
