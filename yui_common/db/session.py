@@ -24,7 +24,7 @@ def get_engine():
     global _engine
     if _engine is None:
         db_url = _build_database_url()
-        _engine = create_async_engine(db_url, echo=False, pool_pre_ping=True)
+        _engine = create_async_engine(db_url, echo=False, pool_pre_ping=True, pool_recycle=300)
     return _engine
 
 
