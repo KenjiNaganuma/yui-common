@@ -8,12 +8,14 @@ class LoginUserMiddleware(BaseHTTPMiddleware):
 
         request.state.syokuin = None
 
-        if hasattr(request, "session"):
-            syokuin_cd = request.session.get("syokuin_cd")
+        # ★ ここが肝：property に触らない
+        session = request.scope.get("session")
+        if session:
+            syokuin_cd = session.get("syokuin_cd")
 
             if syokuin_cd:
-                SessionLocal = get_sessionmaker()   # ← ① sessionmaker を取得
-                async with SessionLocal() as db:     # ← ② AsyncSession を生成して with
+                SessionLocal = get_sessionmaker()
+                async with SessionLocal() as db:
                     result = await db.execute(
                         text("""
                             SELECT *
@@ -27,3 +29,4 @@ class LoginUserMiddleware(BaseHTTPMiddleware):
                         request.state.syokuin = dict(row._mapping)
 
         return await call_next(request)
+
