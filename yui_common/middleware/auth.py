@@ -19,29 +19,29 @@ class LoginUserMiddleware(BaseHTTPMiddleware):
 
         request.state.syokuin = None
 
-        # ★ ここが肝：property に触らない
         session = request.scope.get("session")
         logger.info(f"🔥 session in middleware = {session}")
 
-        if session:
-            syokuin_cd = session.get("syokuin_cd")
-            logger.info(f"🔥 syokuin_cd from session = {syokuin_cd}")
+        # ★ ここだけを見る
+        syokuin_cd = session.get("syokuin_cd") if session is not None else None
+        logger.info(f"🔥 syokuin_cd from session = {syokuin_cd}")
 
-            if syokuin_cd:
-                SessionLocal = get_sessionmaker()
-                async with SessionLocal() as db:
-                    result = await db.execute(
-                        text("""
-                            SELECT *
-                            FROM kdp.master_syokuin
-                            WHERE syokuin_cd = :cd
-                        """),
-                        {"cd": syokuin_cd}
-                    )
-                    row = result.fetchone()
-                    if row:
-                        logger.info(f"🔥 DB row = {row}")
-                        request.state.syokuin = dict(row._mapping)
+        if syokuin_cd:
+            SessionLocal = get_sessionmaker()
+            async with SessionLocal() as db:
+                result = await db.execute(
+                    text("""
+                        SELECT *
+                        FROM kdp.master_syokuin
+                        WHERE syokuin_cd = :cd
+                    """),
+                    {"cd": syokuin_cd}
+                )
+                row = result.fetchone()
+                logger.info(f"🔥 DB row = {row}")
+
+                if row:
+                    request.state.syokuin = dict(row._mapping)
 
         return await call_next(request)
 
