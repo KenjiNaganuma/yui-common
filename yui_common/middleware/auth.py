@@ -18,10 +18,11 @@ class LoginUserMiddleware(BaseHTTPMiddleware):
         logger.info(f"🔥 LoginUserMiddleware HIT path={request.url.path}")
 
         request.state.syokuin = None
-        logger.info(f"🔥 session in middleware = {session}")
 
         # ★ ここが肝：property に触らない
         session = request.scope.get("session")
+        logger.info(f"🔥 session in middleware = {session}")
+
         if session:
             syokuin_cd = session.get("syokuin_cd")
             logger.info(f"🔥 syokuin_cd from session = {syokuin_cd}")
