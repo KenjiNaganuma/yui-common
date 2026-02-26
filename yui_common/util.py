@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 from sqlalchemy import text
 from fastapi import FastAPI, Request, Form, Depends, Query
+from fastapi.params import Form as FormParam  # ← FieldInfo型の判定に使う
 
 print("✅ util.py 実体:", __file__)
 
@@ -44,17 +45,20 @@ class EventFormParams:
         HiddenNavigateSelectedTagType: str = Form(None),
         HiddenNavigateSelectedKojinID: str = Form(None),
     ):
-        self.HiddenNavigateStartDate: Optional[str] = HiddenNavigateStartDate
-        self.HiddenNavigateEndDate: Optional[str] = HiddenNavigateEndDate
-        self.HiddenNavigateNoteDate: Optional[str] = HiddenNavigateNoteDate
-        self.HiddenNavigateLoginSyokuinCD: Optional[str] = HiddenNavigateLoginSyokuinCD
-        self.HiddenNavigateLoginSyokuinName: Optional[str] = HiddenNavigateLoginSyokuinName
-        self.HiddenNavigateSelectedSyokuinCD: Optional[str] = HiddenNavigateSelectedSyokuinCD
-        self.HiddenNavigateSelectedReport: Optional[str] = HiddenNavigateSelectedReport
-        self.HiddenNavigateSearchWord: Optional[str] = HiddenNavigateSearchWord
-        self.HiddenNavigateSelectedTag: Optional[str] = HiddenNavigateSelectedTag
-        self.HiddenNavigateSelectedTagType: Optional[str] = HiddenNavigateSelectedTagType
-        self.HiddenNavigateSelectedKojinID: Optional[str] = HiddenNavigateSelectedKojinID
+        def _clean(v):
+            return None if isinstance(v, FormParam) else v
+
+        self.HiddenNavigateStartDate = _clean(HiddenNavigateStartDate)
+        self.HiddenNavigateEndDate = _clean(HiddenNavigateEndDate)
+        self.HiddenNavigateNoteDate = _clean(HiddenNavigateNoteDate)
+        self.HiddenNavigateLoginSyokuinCD = _clean(HiddenNavigateLoginSyokuinCD)
+        self.HiddenNavigateLoginSyokuinName = _clean(HiddenNavigateLoginSyokuinName)
+        self.HiddenNavigateSelectedSyokuinCD = _clean(HiddenNavigateSelectedSyokuinCD)
+        self.HiddenNavigateSelectedReport = _clean(HiddenNavigateSelectedReport)
+        self.HiddenNavigateSearchWord = _clean(HiddenNavigateSearchWord)
+        self.HiddenNavigateSelectedTag = _clean(HiddenNavigateSelectedTag)
+        self.HiddenNavigateSelectedTagType = _clean(HiddenNavigateSelectedTagType)
+        self.HiddenNavigateSelectedKojinID = _clean(HiddenNavigateSelectedKojinID)
 
 
 
