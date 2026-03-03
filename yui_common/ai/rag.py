@@ -217,33 +217,41 @@ async def generate_rag_snippet_riyosya(
 
     result = await session.execute(text("""
         SELECT
-            id,
-            note_text,
-            kojin_id,
-            setai_id,
-            syokuin_cd,
-            syokuin_name,
-            report_date
-        FROM app.note
-        WHERE id = :id
-          AND delete_flag = false
-          AND target_type = 'riyosya'
+            n.id,
+            n.note_text,
+            n.kojin_id,
+            n.setai_id,
+            n.syokuin_cd,
+            n.syokuin_name,
+            n.report_date,
+            k."氏名" AS kojin_name
+        FROM app.note n
+        LEFT JOIN kdp.master_kojin k
+            ON n.kojin_id = k.kojin_id
+        WHERE n.id = :id
+        AND n.delete_flag = false
+        AND n.target_type = 'riyosya'
     """), {"id": note_id})
+
 
     row = result.mappings().first()
     if not row or not row["note_text"].strip():
         return
 
-    content = row["note_text"].strip()
+    kojin_name = row["kojin_name"] or "不明"
 
-    await session.execute(text("""
-        DELETE FROM ai.rag_snippets
-        WHERE source_type = 'riyosya'
-          AND source_id = :source_id
-    """), {"source_id": note_id})
+    content = f"""
+    【{kojin_name}の利用者ノート】
+    氏名: {kojin_name}
+    記録者: {row["syokuin_name"]}
+    日付: {row["report_date"]}
+    内容:
+    {row["note_text"].strip()}
+    """.strip()
 
     embedding = await embed_text(content)
     snippet_type = await classify_snippet_type(content)
+    importance = calculate_importance(content, snippet_type)  # ← ここ追加
 
     await session.execute(text("""
         INSERT INTO ai.rag_snippets (
@@ -256,7 +264,9 @@ async def generate_rag_snippet_riyosya(
             embedding,
             report_date,
             syokuin_cd,
-            syokuin_name
+            syokuin_name,
+            importance_score,
+            updated_at
         )
         VALUES (
             :snippet_type,
@@ -268,8 +278,20 @@ async def generate_rag_snippet_riyosya(
             :embedding,
             :report_date,
             :syokuin_cd,
-            :syokuin_name
+            :syokuin_name,
+            :importance_score,
+            now()
         )
+        ON CONFLICT (source_type, source_id)
+        DO UPDATE SET
+            content = EXCLUDED.content,
+            embedding = EXCLUDED.embedding,
+            snippet_type = EXCLUDED.snippet_type,
+            report_date = EXCLUDED.report_date,
+            syokuin_cd = EXCLUDED.syokuin_cd,
+            syokuin_name = EXCLUDED.syokuin_name,
+            importance_score = EXCLUDED.importance_score,
+            updated_at = now()
     """), {
         "snippet_type": snippet_type,
         "kojin_id": row["kojin_id"],
@@ -280,6 +302,7 @@ async def generate_rag_snippet_riyosya(
         "report_date": row["report_date"],
         "syokuin_cd": row["syokuin_cd"],
         "syokuin_name": row["syokuin_name"],
+        "importance_score": importance,
     })
 
 
@@ -306,23 +329,24 @@ async def generate_rag_snippet_syokuin(
             report_date
         FROM app.note
         WHERE id = :id
-          AND target_type = 'syokuin'
+        AND target_type = 'syokuin'
     """), {"id": note_id})
 
     row = result.mappings().first()
-    if not row or not row["note_text"].strip():
+    if not row or not row["note_text"] or not row["note_text"].strip():
         return
 
-    content = row["note_text"].strip()
-
-    await session.execute(text("""
-        DELETE FROM ai.rag_snippets
-        WHERE source_type = 'syokuin'
-          AND source_id = :source_id
-    """), {"source_id": note_id})
+    content = f"""
+    【職員ノート】
+    記録者: {row["syokuin_name"]}
+    日付: {row["report_date"]}
+    内容:
+    {row["note_text"].strip()}
+    """.strip()
 
     embedding = await embed_text(content)
     snippet_type = await classify_snippet_type(content)
+    importance = calculate_importance(content, snippet_type)  # ← 追加
 
     await session.execute(text("""
         INSERT INTO ai.rag_snippets (
@@ -335,7 +359,9 @@ async def generate_rag_snippet_syokuin(
             embedding,
             report_date,
             syokuin_cd,
-            syokuin_name
+            syokuin_name,
+            importance_score,
+            updated_at
         )
         VALUES (
             :snippet_type,
@@ -347,8 +373,20 @@ async def generate_rag_snippet_syokuin(
             :embedding,
             :report_date,
             :syokuin_cd,
-            :syokuin_name
+            :syokuin_name,
+            :importance_score,
+            now()
         )
+        ON CONFLICT (source_type, source_id)
+        DO UPDATE SET
+            content = EXCLUDED.content,
+            embedding = EXCLUDED.embedding,
+            snippet_type = EXCLUDED.snippet_type,
+            report_date = EXCLUDED.report_date,
+            syokuin_cd = EXCLUDED.syokuin_cd,
+            syokuin_name = EXCLUDED.syokuin_name,
+            importance_score = EXCLUDED.importance_score,
+            updated_at = now()
     """), {
         "snippet_type": snippet_type,
         "kojin_id": row["kojin_id"],
@@ -359,6 +397,7 @@ async def generate_rag_snippet_syokuin(
         "report_date": row["report_date"],
         "syokuin_cd": row["syokuin_cd"],
         "syokuin_name": row["syokuin_name"],
+        "importance_score": importance,
     })
 
 
@@ -376,31 +415,39 @@ async def generate_rag_snippet_reminder(
 
     result = await session.execute(text("""
         SELECT
-            reminder_id AS id,
-            description AS note_text,
-            kojin_id,
+            r.reminder_id AS id,
+            r.description AS note_text,
+            r.kojin_id,
             0 AS setai_id,
-            syokuin_cd,
-            syokuin_name,
-            event_date AS report_date
-        FROM app.reminder
-        WHERE reminder_id = :id
+            r.syokuin_cd,
+            r.syokuin_name,
+            r.event_date AS report_date,
+            k."氏名" AS kojin_name
+        FROM app.reminder r
+        LEFT JOIN kdp.master_kojin k
+            ON r.kojin_id = k.kojin_id
+        WHERE r.reminder_id = :id
     """), {"id": note_id})
 
+
     row = result.mappings().first()
-    if not row or not row["note_text"].strip():
+    if not row or not row["note_text"] or not row["note_text"].strip():
         return
 
-    content = row["note_text"].strip()
+    kojin_name = row["kojin_name"] or "不明"
 
-    await session.execute(text("""
-        DELETE FROM ai.rag_snippets
-        WHERE source_type = 'syokuin'
-          AND source_id = :source_id
-    """), {"source_id": note_id})
+    content = f"""
+    【{kojin_name}の予定】
+    氏名: {kojin_name}
+    記録者: {row["syokuin_name"]}
+    予定日: {row["report_date"]}
+    内容:
+    {row["note_text"].strip()}
+    """.strip()
 
     embedding = await embed_text(content)
     snippet_type = await classify_snippet_type(content)
+    importance = calculate_importance(content, snippet_type)
 
     await session.execute(text("""
         INSERT INTO ai.rag_snippets (
@@ -413,7 +460,9 @@ async def generate_rag_snippet_reminder(
             embedding,
             report_date,
             syokuin_cd,
-            syokuin_name
+            syokuin_name,
+            importance_score,
+            updated_at
         )
         VALUES (
             :snippet_type,
@@ -425,8 +474,20 @@ async def generate_rag_snippet_reminder(
             :embedding,
             :report_date,
             :syokuin_cd,
-            :syokuin_name
+            :syokuin_name,
+            :importance_score,
+            now()
         )
+        ON CONFLICT (source_type, source_id)
+        DO UPDATE SET
+            content = EXCLUDED.content,
+            embedding = EXCLUDED.embedding,
+            snippet_type = EXCLUDED.snippet_type,
+            report_date = EXCLUDED.report_date,
+            syokuin_cd = EXCLUDED.syokuin_cd,
+            syokuin_name = EXCLUDED.syokuin_name,
+            importance_score = EXCLUDED.importance_score,
+            updated_at = now()
     """), {
         "snippet_type": snippet_type,
         "kojin_id": row["kojin_id"],
@@ -437,7 +498,41 @@ async def generate_rag_snippet_reminder(
         "report_date": row["report_date"],
         "syokuin_cd": row["syokuin_cd"],
         "syokuin_name": row["syokuin_name"],
+        "importance_score": importance,
     })
+
+
+###########################################
+# RAGに突っ込むimportanceをルールベースで判断させる
+###########################################
+def calculate_importance(content: str, snippet_type: str) -> float:
+    score = 0.3  # base
+
+    # 1. snippet_type補正
+    type_weight = {
+        "decision": 0.4,
+        "change": 0.3,
+        "emotion": 0.1,
+        "fact": 0.0
+    }
+    score += type_weight.get(snippet_type, 0.0)
+
+    # 2. キーワード補正
+    keyword_groups = {
+        0.4: ["クレーム", "苦情", "他JA", "解約"],
+        0.4: ["結い", "訪問", "メール", "見積", "請求", "支払"],
+        0.3: ["相続", "後継", "廃業", "倒れ", "病気"],
+        0.3: ["電話", "相談", "ミーティング"],
+        0.2: ["検討", "相談", "見直し", "契約予定"],
+        0.0: ["世帯を追加", "世帯員を追加"],
+    }
+
+    for weight, words in keyword_groups.items():
+        if any(word in content for word in words):
+            score += weight
+            break  # 一番重いものだけ加算
+
+    return min(score, 1.0)
 
 
 ###########################################
